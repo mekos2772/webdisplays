@@ -35,3 +35,9 @@ hs_err_pid*.log
 
 # Mod dev artifacts (keep the libs folder structure but ignore built jars)
 build/libs/
+
+# Claude
+.claude/
+
+# Crash reports
+*.zip
