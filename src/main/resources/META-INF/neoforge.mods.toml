@@ -1,0 +1,35 @@
+modLoader = "javafml"
+loaderVersion = "[2,)"
+
+license = "MIT"
+
+[[mods]]
+modId = "webdisplays"
+version = "${mod_version}"
+displayName = "WebDisplays"
+displayURL = "https://github.com/CinemaMod/webdisplays"
+authors = "GiantLuigi4, ds58, Mysticpasta1, montoyo, WaterPicker"
+description = '''
+WebDisplays is a mod for creating and interacting with web browsers in Minecraft. Create screens in your world and browse the internet.
+'''
+
+[[dependencies.webdisplays]]
+modId = "neoforge"
+type = "required"
+versionRange = "[${neoforge_version},)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.webdisplays]]
+modId = "minecraft"
+type = "required"
+versionRange = "[${minecraft_version},)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.webdisplays]]
+modId = "mcef"
+type = "required"
+versionRange = "[2.1.0-${minecraft_version},)"
+ordering = "NONE"
+side = "BOTH"

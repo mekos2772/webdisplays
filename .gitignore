@@ -1,0 +1,37 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.project
+.classpath
+.settings/
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Minecraft / Dev
+run/
+logs/
+*.log
+crash-reports/
+hs_err_pid*.log
+
+# Java
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# Mod dev artifacts (keep the libs folder structure but ignore built jars)
+build/libs/

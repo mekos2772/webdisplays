@@ -1,0 +1,22 @@
+{
+  "loader": "webdisplays:screen_loader",
+  "textures": {
+    "screen0": "webdisplays:block/screen0",
+    "screen1": "webdisplays:block/screen1",
+    "screen2": "webdisplays:block/screen2",
+    "screen3": "webdisplays:block/screen3",
+    "screen4": "webdisplays:block/screen4",
+    "screen5": "webdisplays:block/screen5",
+    "screen6": "webdisplays:block/screen6",
+    "screen7": "webdisplays:block/screen7",
+    "screen8": "webdisplays:block/screen8",
+    "screen9": "webdisplays:block/screen9",
+    "screen10": "webdisplays:block/screen10",
+    "screen11": "webdisplays:block/screen11",
+    "screen12": "webdisplays:block/screen12",
+    "screen13": "webdisplays:block/screen13",
+    "screen14": "webdisplays:block/screen14",
+    "screen15": "webdisplays:block/screen15",
+    "particle": "webdisplays:block/screen15"
+  }
+}
