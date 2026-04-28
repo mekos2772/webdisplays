@@ -27,6 +27,9 @@ versionRange = "[${minecraft_version},)"
 ordering = "NONE"
 side = "BOTH"
 
+[[mixins]]
+config = "webdisplays.mixins.json"
+
 [[dependencies.webdisplays]]
 modId = "mcef"
 type = "required"

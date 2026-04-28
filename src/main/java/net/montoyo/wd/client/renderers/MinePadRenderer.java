@@ -27,6 +27,7 @@ import net.montoyo.wd.WebDisplays;
 import net.montoyo.wd.client.ClientProxy;
 import net.montoyo.wd.config.ClientConfig;
 import net.montoyo.wd.item.ItemMinePad2;
+import org.lwjgl.opengl.GL11;
 
 import static com.mojang.math.Axis.*;
 
@@ -37,16 +38,16 @@ public final class MinePadRenderer implements IItemRenderer {
 	private final ResourceLocation tex = ResourceLocation.fromNamespaceAndPath("webdisplays", "textures/item/model/minepad.png");
 	private final ModelMinePad model = new ModelMinePad();
 	private final ClientProxy clientProxy = (ClientProxy) WebDisplays.PROXY;
-	
+
 	private float sinSqrtSwingProg1;
 	private float sinSqrtSwingProg2;
 	private float sinSwingProg1;
 	private float sinSwingProg2;
-	
+
 	public static boolean renderAtSide(float handSideSign) {
 		float relSide = handSideSign;
 		if (Minecraft.getInstance().player.getMainArm() == HumanoidArm.LEFT) relSide *= -1;
-		
+
 		// by default, the player holds the device off to the side
 		// if they are crouching, they hold it infront of them
 		// however, if they are holding two at once, then it once again should just be held off to the side
@@ -55,10 +56,10 @@ public final class MinePadRenderer implements IItemRenderer {
 				(relSide < 0 && Minecraft.getInstance().player.getItemInHand(InteractionHand.MAIN_HAND).getItem() instanceof ItemMinePad2) ||
 						(relSide > 0 && Minecraft.getInstance().player.getItemInHand(InteractionHand.OFF_HAND).getItem() instanceof ItemMinePad2)
 		) sideHold = true;
-		
+
 		return sideHold;
 	}
-	
+
 	@Override
 	public final boolean render(PoseStack stack, ItemStack is, float handSideSign, float swingProgress, float equipProgress, MultiBufferSource multiBufferSource, int packedLight) {
 		//Pre-compute values
@@ -67,19 +68,16 @@ public final class MinePadRenderer implements IItemRenderer {
 		sinSqrtSwingProg2 = (float) Math.sin(sqrtSwingProg * PI * 2.0f);
 		sinSwingProg1 = (float) Math.sin(swingProgress * PI);
 		sinSwingProg2 = (float) Math.sin(swingProgress * swingProgress * PI);
-		
+
 		boolean sideHold = renderAtSide(handSideSign);
-		
+
 		//Render arm
 		stack.pushPose();
+		int prevTex1 = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
 		renderArmFirstPerson(stack, multiBufferSource, packedLight, equipProgress, handSideSign);
+		RenderSystem.setShaderTexture(0, prevTex1);
 		stack.popPose();
-//		if (!sideHold && handSideSign == 1 && mc.player.getItemInHand(InteractionHand.OFF_HAND).isEmpty()) {
-//			stack.pushPose();
-//			renderArmFirstPerson(stack, multiBufferSource, packedLight, 0, -handSideSign);
-//			stack.popPose();
-//		}
-		
+
 		//Prepare minePad transform
 		stack.pushPose();
 		stack.translate(handSideSign * -0.4f * sinSqrtSwingProg1, 0.2f * sinSqrtSwingProg2, -0.2f * sinSwingProg1);
@@ -88,7 +86,7 @@ public final class MinePadRenderer implements IItemRenderer {
 		stack.mulPose(ZP.rotationDegrees(handSideSign * sinSqrtSwingProg1 * -20.0f));
 		stack.mulPose(XP.rotationDegrees(sinSqrtSwingProg1 * -80.0f));
 		stack.mulPose(YP.rotationDegrees(handSideSign * -45.0f));
-		
+
 		if (sideHold) {
 			stack.translate(0.0f, 0.0f, -0.2f);
 			stack.mulPose(YP.rotationDegrees(20.0f * -handSideSign));
@@ -100,30 +98,30 @@ public final class MinePadRenderer implements IItemRenderer {
 			stack.translate(-1.065f, 0.0f, 0.0f);
 		else // left hand
 			stack.translate(0.065f, 0.0f, 0.0f);
-		
+
 		//Render model
 		stack.translate(0.063f, 0.28f, 0.001f);
 		model.render(multiBufferSource, stack);
 		stack.translate(-0.063f, -0.28f, -0.001f);
-		
+
 		// force draw so the browser can be drawn ontop of the model
 		multiBufferSource.getBuffer(RenderType.LINES);
-		
+
 		if (is.has(DataComponents.CUSTOM_DATA) && is.get(DataComponents.CUSTOM_DATA).copyTag().contains("PadID")) {
 			ClientProxy.PadData pd = clientProxy.getPadByID(is.get(DataComponents.CUSTOM_DATA).copyTag().getUUID("PadID"));
-			
+
 			//Render web view
 			if (pd != null) {
 				double x1 = 0.0;
 				double y1 = 0.0;
 				double x2 = 27.65 / 32.0 + 0.01;
 				double y2 = 14.0 / 32.0 + 0.002;
-				
+
 				stack.translate(0.063f, 0.28f, 0.001f);
-//				RenderSystem.setShaderTexture(0, tex);
-				
+
 				RenderSystem.disableDepthTest();
 				RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+				int prevTex = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
 				RenderSystem.setShaderTexture(0, ((MCEFBrowser) pd.view).getRenderer().getTextureID());
 				Tesselator t = Tesselator.getInstance();
 				BufferBuilder buffer = t.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
@@ -132,21 +130,22 @@ public final class MinePadRenderer implements IItemRenderer {
 				buffer.addVertex(stack.last().pose(), (float) x2, (float) y2, 0.0f).setUv(1.0F, 0.0F).setColor(255, 255, 255, 255);
 				buffer.addVertex(stack.last().pose(), (float) x1, (float) y2, 0.0f).setUv(0.0F, 0.0F).setColor(255, 255, 255, 255);
 				BufferUploader.drawWithShader(buffer.buildOrThrow());
+				RenderSystem.setShaderTexture(0, prevTex);
 				RenderSystem.enableDepthTest();
 			}
 		}
-		
+
 		stack.popPose();
 		RenderSystem.enableCull();
-		
+
 		return true;
 	}
-	
+
 	private void renderArmFirstPerson(PoseStack stack, MultiBufferSource buffer, int combinedLight, float equipProgress, float handSideSign) {
 		float tx = -0.3f * sinSqrtSwingProg1;
 		float ty = 0.4f * sinSqrtSwingProg2;
 		float tz = -0.4f * sinSwingProg1;
-		
+
 		stack.translate(handSideSign * (tx + 0.64000005f), ty - 0.6f - equipProgress * 0.6f, tz - 0.71999997f);
 		stack.mulPose(YP.rotationDegrees(handSideSign * 45.0f));
 		stack.mulPose(YP.rotationDegrees(handSideSign * sinSqrtSwingProg1 * 70.0f));
@@ -156,13 +155,16 @@ public final class MinePadRenderer implements IItemRenderer {
 		stack.mulPose(XP.rotationDegrees(200.0f));
 		stack.mulPose(YP.rotationDegrees(handSideSign * -135.0f));
 		stack.translate(handSideSign * 5.6f, 0.0f, 0.0f);
-		
+
 		PlayerRenderer playerRenderer = (PlayerRenderer) mc.getEntityRenderDispatcher().getRenderer(mc.player);
+		int prevTex = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
 		RenderSystem.setShaderTexture(0, mc.player.getSkin().texture());
-		
+
 		if (handSideSign >= 0.0f)
 			playerRenderer.renderRightHand(stack, buffer, combinedLight, mc.player);
 		else
 			playerRenderer.renderLeftHand(stack, buffer, combinedLight, mc.player);
+
+		RenderSystem.setShaderTexture(0, prevTex);
 	}
 }
