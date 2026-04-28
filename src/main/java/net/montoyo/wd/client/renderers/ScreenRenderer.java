@@ -12,13 +12,13 @@ import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.montoyo.wd.WebDisplays;
 import net.montoyo.wd.entity.ScreenBlockEntity;
 import net.montoyo.wd.entity.ScreenData;
 import net.montoyo.wd.utilities.math.Vector3f;
 import net.montoyo.wd.utilities.math.Vector3i;
 import org.jetbrains.annotations.NotNull;
-import org.lwjgl.opengl.GL11;
 
 import static com.mojang.math.Axis.*;
 
@@ -42,9 +42,6 @@ public class ScreenRenderer implements BlockEntityRenderer<ScreenBlockEntity> {
 		if (!te.isLoaded())
 			return;
 
-		//Disable lighting
-//		RenderSystem.enableTexture();
-//      RenderSystem.disableCull();
 		RenderSystem.disableBlend();
 
 		for (int i = 0; i < te.screenCount(); i++) {
@@ -55,8 +52,6 @@ public class ScreenRenderer implements BlockEntityRenderer<ScreenBlockEntity> {
 					scr.createBrowser(te, true);
 				if (scr.browser == null) continue;
 			}
-
-			// TODO: manually backface cull the screens
 
 			tmpi.set(scr.side.right);
 			tmpi.mul(scr.size.x);
@@ -122,11 +117,9 @@ public class ScreenRenderer implements BlockEntityRenderer<ScreenBlockEntity> {
 			}
 
 			Tesselator tesselator = Tesselator.getInstance();
-			//TODO: don't use tesselator
 			RenderSystem.enableDepthTest();
 			RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
-			int prevTex = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
-			RenderSystem._setShaderTexture(0, ((MCEFBrowser) scr.browser).getRenderer().getTextureID());
+			RenderSystem.setShaderTexture(0, ((MCEFBrowser) scr.browser).getRenderer().getTextureID());
 			RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
 			BufferBuilder builder = tesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 			builder.addVertex(poseStack.last().pose(), -sw, -sh, 0.505f).setUv(0.f, 1.f).setColor(255, 255, 255, 255);
@@ -134,59 +127,13 @@ public class ScreenRenderer implements BlockEntityRenderer<ScreenBlockEntity> {
 			builder.addVertex(poseStack.last().pose(), sw, sh, 0.505f).setUv(1.f, 0.f).setColor(255, 255, 255, 255);
 			builder.addVertex(poseStack.last().pose(), -sw, sh, 0.505f).setUv(0.f, 0.f).setColor(255, 255, 255, 255);
 			BufferUploader.drawWithShader(builder.buildOrThrow());
-			RenderSystem._setShaderTexture(0, prevTex);
+			// Restore the Minecraft block atlas texture so subsequent renders don't sample the browser texture
+			RenderSystem.setShaderTexture(0, Minecraft.getInstance().getTextureManager().getTexture(TextureAtlas.LOCATION_BLOCKS).getId());
 			RenderSystem.disableDepthTest();
-
-			// TODO: it'd be neat to draw a mouse cursor on the screen
-//			// debug hit2pixels
-//			HitResult result = Minecraft.getInstance().hitResult;
-//			VertexConsumer consumer = bufferSource.getBuffer(RenderType.lines());
-//			net.minecraft.client.renderer.RenderSystem.getModelViewStack().translate(-sw, -sh, 0);
-//			if (result instanceof BlockHitResult hit) {
-//				BlockPos bpos = hit.getBlockPos();
-//
-//				Vector3i pos = new Vector3i(hit.getBlockPos());
-//				float hitX = ((float) result.getLocation().x) - (float) te.getBlockPos().getX();
-//				float hitY = ((float) result.getLocation().y) - (float) te.getBlockPos().getY();
-//				float hitZ = ((float) result.getLocation().z) - (float) te.getBlockPos().getZ();
-//				Vector2i tmp = new Vector2i();
-//
-//				if (BlockScreen.hit2pixels(scr.side, bpos, pos, scr, hitX, hitY, hitZ, tmp)) {
-//					float x = tmp.x / (float) scr.resolution.x * scr.size.x;
-//					float y = tmp.y / (float) scr.resolution.y * scr.size.y;
-//					y = scr.size.y - y;
-//
-//					x /= scr.size.x;
-//					y /= scr.size.y;
-//					x *= sw * 2;
-//					y *= sh * 2;
-//
-//					LevelRenderer.renderLineBox(
-//							poseStack,
-//							consumer, new AABB(
-//									x - 0.01, y - 0.01, 0.5 - 0.01,
-//									x + 0.01, y + 0.01, 0.5 + 0.01
-//							),
-//							1f, 0, 0, 1f
-//					);
-//				}
-//			}
 
 			poseStack.popPose();
 		}
 
 		RenderSystem.enableBlend();
-
-//        //Bounding box debugging
-//        net.minecraft.client.renderer.RenderSystem.getModelViewStack().pushPose();
-//        net.minecraft.client.renderer.RenderSystem.getModelViewStack().translate(-te.getBlockPos().getX(), -te.getBlockPos().getY(), -te.getBlockPos().getZ());
-//        LevelRenderer.renderLineBox(
-//                poseStack, bufferSource.getBuffer(RenderType.LINES),
-//                te.getRenderBoundingBox(), 1, 1, 1, 1f
-//        );
-//        net.minecraft.client.renderer.RenderSystem.getModelViewStack().popPose();
-
-		//Re-enable lighting
-//        RenderSystem.enableCull();
 	}
 }
