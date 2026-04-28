@@ -1,5 +1,6 @@
 package net.montoyo.wd.mixins;
 
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
@@ -13,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class OverlayMixin {
 
     @Inject(at = @At("HEAD"), method = "renderCrosshair", cancellable = true)
-    public void preDrawCrosshair(GuiGraphics pGuiGraphics, CallbackInfo ci) {
+    public void preDrawCrosshair(GuiGraphics pGuiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
         ClientProxy.renderCrosshair(mc.options, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), 0, pGuiGraphics, ci);
     }
