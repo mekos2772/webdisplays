@@ -191,12 +191,12 @@ public class ScreenBaker implements BakedModel {
 	
 	@Override
 	public boolean usesBlockLight() {
-		return false;
+		return true;
 	}
 	
 	@Override
 	public boolean isCustomRenderer() {
-		return false;
+		return true;
 	}
 	
 	@Override
