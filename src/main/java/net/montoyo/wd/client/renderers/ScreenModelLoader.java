@@ -33,7 +33,8 @@ public class ScreenModelLoader implements IGeometryLoader<ScreenModelLoader.Scre
                 // The atlas is determined by the baking context (block atlas for block models)
                 Material mat = context.getMaterial("screen" + i);
                 sprites[i] = spriteGetter.apply(mat);
-                Log.info("ScreenModelLoader: sprite screen" + i + " atlas=" + mat.atlasLocation() + " texture=" + mat.texture() + " sprite=" + sprites[i].contents().name());
+                var s = sprites[i];
+                Log.info("ScreenModelLoader: screen" + i + " uv=(" + s.getU0() + "," + s.getV0() + ")-(" + s.getU1() + "," + s.getV1() + ") atlas=" + mat.atlasLocation());
             }
 
             return new ScreenBaker(sprites);
