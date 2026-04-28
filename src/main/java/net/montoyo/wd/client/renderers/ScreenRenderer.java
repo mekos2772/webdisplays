@@ -127,7 +127,8 @@ public class ScreenRenderer implements BlockEntityRenderer<ScreenBlockEntity> {
 			builder.addVertex(poseStack.last().pose(), sw, sh, 0.505f).setUv(1.f, 0.f).setColor(255, 255, 255, 255);
 			builder.addVertex(poseStack.last().pose(), -sw, sh, 0.505f).setUv(0.f, 0.f).setColor(255, 255, 255, 255);
 			BufferUploader.drawWithShader(builder.buildOrThrow());
-			RenderSystem.setShaderTexture(0, 0);
+			int atlasId = Minecraft.getInstance().getTextureManager().getTexture(TextureAtlas.LOCATION_BLOCKS).getId();
+			RenderSystem._setShaderTexture(0, atlasId);
 			RenderSystem.disableDepthTest();
 
 			poseStack.popPose();
