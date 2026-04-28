@@ -27,7 +27,6 @@ import net.montoyo.wd.WebDisplays;
 import net.montoyo.wd.client.ClientProxy;
 import net.montoyo.wd.config.ClientConfig;
 import net.montoyo.wd.item.ItemMinePad2;
-import org.lwjgl.opengl.GL11;
 
 import static com.mojang.math.Axis.*;
 
@@ -73,9 +72,7 @@ public final class MinePadRenderer implements IItemRenderer {
 
 		//Render arm
 		stack.pushPose();
-		int prevTex1 = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
 		renderArmFirstPerson(stack, multiBufferSource, packedLight, equipProgress, handSideSign);
-		RenderSystem.setShaderTexture(0, prevTex1);
 		stack.popPose();
 
 		//Prepare minePad transform
@@ -121,7 +118,6 @@ public final class MinePadRenderer implements IItemRenderer {
 
 				RenderSystem.disableDepthTest();
 				RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
-				int prevTex = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
 				RenderSystem.setShaderTexture(0, ((MCEFBrowser) pd.view).getRenderer().getTextureID());
 				Tesselator t = Tesselator.getInstance();
 				BufferBuilder buffer = t.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
@@ -130,7 +126,7 @@ public final class MinePadRenderer implements IItemRenderer {
 				buffer.addVertex(stack.last().pose(), (float) x2, (float) y2, 0.0f).setUv(1.0F, 0.0F).setColor(255, 255, 255, 255);
 				buffer.addVertex(stack.last().pose(), (float) x1, (float) y2, 0.0f).setUv(0.0F, 0.0F).setColor(255, 255, 255, 255);
 				BufferUploader.drawWithShader(buffer.buildOrThrow());
-				RenderSystem.setShaderTexture(0, prevTex);
+				RenderSystem.setShaderTexture(0, 0);
 				RenderSystem.enableDepthTest();
 			}
 		}
@@ -157,7 +153,6 @@ public final class MinePadRenderer implements IItemRenderer {
 		stack.translate(handSideSign * 5.6f, 0.0f, 0.0f);
 
 		PlayerRenderer playerRenderer = (PlayerRenderer) mc.getEntityRenderDispatcher().getRenderer(mc.player);
-		int prevTex = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
 		RenderSystem.setShaderTexture(0, mc.player.getSkin().texture());
 
 		if (handSideSign >= 0.0f)
@@ -165,6 +160,6 @@ public final class MinePadRenderer implements IItemRenderer {
 		else
 			playerRenderer.renderLeftHand(stack, buffer, combinedLight, mc.player);
 
-		RenderSystem.setShaderTexture(0, prevTex);
+		RenderSystem.setShaderTexture(0, 0);
 	}
 }
