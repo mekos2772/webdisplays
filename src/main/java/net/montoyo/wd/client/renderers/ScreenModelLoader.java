@@ -4,6 +4,7 @@ import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import net.minecraft.client.renderer.block.model.ItemOverrides;
+import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.*;
 import net.minecraft.resources.ResourceLocation;
@@ -22,12 +23,14 @@ public class ScreenModelLoader implements IGeometryLoader<ScreenModelLoader.Scre
     }
 
     public static class ScreenModelGeometry implements IUnbakedGeometry<ScreenModelGeometry> {
-        
+
         @Override
         public BakedModel bake(IGeometryBakingContext context, ModelBaker baker, Function<Material, TextureAtlasSprite> spriteGetter, ModelState modelState, ItemOverrides overrides) {
             TextureAtlasSprite[] sprites = new TextureAtlasSprite[16];
             for (int i = 0; i < sprites.length; i++) {
-                sprites[i] = spriteGetter.apply(context.getMaterial("screen" + i));
+                Material mat = new Material(TextureAtlas.LOCATION_BLOCKS,
+                    ResourceLocation.fromNamespaceAndPath("webdisplays", "block/screen" + i));
+                sprites[i] = spriteGetter.apply(mat);
             }
 
             return new ScreenBaker(sprites);
