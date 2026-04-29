@@ -10,6 +10,10 @@ public class Scripts {
 
     @FileName("assets/webdisplays/js/pointer_lock.js")
     public static final String POINTER_LOCK = get();
+    @FileName("assets/webdisplays/js/same_tab_navigation.js")
+    public static final String SAME_TAB_NAVIGATION = get();
+    @FileName("assets/webdisplays/js/virtual_nav_overlay.js")
+    public static final String VIRTUAL_NAV_OVERLAY = get();
     @FileName("assets/webdisplays/js/mouse_event.js")
     public static final String MOUSE_EVENT = get();
     @FileName("assets/webdisplays/js/query_element.js")

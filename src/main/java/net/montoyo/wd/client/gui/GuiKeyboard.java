@@ -50,6 +50,11 @@ import java.util.function.Consumer;
 public class GuiKeyboard extends WDScreen {
 
     private static final String WARNING_FNAME = "wd_keyboard_warning.txt";
+    private static final int NAV_X = 8;
+    private static final int NAV_Y = 8;
+    private static final int NAV_BUTTON_W = 18;
+    private static final int NAV_BUTTON_H = 14;
+    private static final int NAV_GAP = 3;
 
     private ScreenBlockEntity tes;
     private BlockSide side;
@@ -57,6 +62,8 @@ public class GuiKeyboard extends WDScreen {
     private final ArrayList<TypeData> evStack = new ArrayList<>();
     private BlockPos kbPos;
     private boolean showWarning = true;
+    private boolean navExpanded = false;
+    private boolean suppressNextRelease = false;
 
     @FillControl
     private Label lblInfo;
@@ -167,11 +174,22 @@ public class GuiKeyboard extends WDScreen {
     }
 
     @Override
+    public void render(net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.render(graphics, mouseX, mouseY, partialTick);
+        if (!showWarning)
+            drawNavigationOverlay(graphics, mouseX, mouseY);
+    }
+
+    @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (quitOnEscape && keyCode == GLFW.GLFW_KEY_ESCAPE) {
             onClose();
             return true;
         }
+
+        if (handleNavigationShortcut(keyCode, modifiers))
+            return true;
+
         addKey(new TypeData(TypeData.Action.PRESS, keyCode, modifiers, scanCode));
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
@@ -186,6 +204,37 @@ public class GuiKeyboard extends WDScreen {
     public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
         addKey(new TypeData(TypeData.Action.RELEASE, keyCode, modifiers, scanCode));
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    private boolean handleNavigationShortcut(int keyCode, int modifiers) {
+        if (data == null || data.browser == null)
+            return false;
+
+        boolean ctrl = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
+        boolean shift = (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
+        boolean alt = (modifiers & GLFW.GLFW_MOD_ALT) != 0;
+
+        if (keyCode == GLFW.GLFW_KEY_F5 || (ctrl && keyCode == GLFW.GLFW_KEY_R)) {
+            if (ctrl && shift)
+                data.browser.reloadIgnoreCache();
+            else
+                data.browser.reload();
+            return true;
+        }
+
+        if (alt && keyCode == GLFW.GLFW_KEY_LEFT) {
+            if (data.browser.canGoBack())
+                data.browser.goBack();
+            return true;
+        }
+
+        if (alt && keyCode == GLFW.GLFW_KEY_RIGHT) {
+            if (data.browser.canGoForward())
+                data.browser.goForward();
+            return true;
+        }
+
+        return false;
     }
 
     void addKey(TypeData data) {
@@ -305,6 +354,9 @@ public class GuiKeyboard extends WDScreen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (handleNavigationClick(mouseX, mouseY, button))
+            return true;
+
         mouse(mouseX, mouseY, (hit) -> {
             tes.handleMouseEvent(side, ClickControl.ControlType.MOVE, hit, -1);
             tes.handleMouseEvent(side, ClickControl.ControlType.DOWN, hit, button);
@@ -318,6 +370,11 @@ public class GuiKeyboard extends WDScreen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (suppressNextRelease) {
+            suppressNextRelease = false;
+            return true;
+        }
+
         mouse(mouseX, mouseY, (hit) -> {
             tes.handleMouseEvent(side, ClickControl.ControlType.MOVE, hit, -1);
             tes.handleMouseEvent(side, ClickControl.ControlType.UP, hit, button);
@@ -327,6 +384,88 @@ public class GuiKeyboard extends WDScreen {
         KeyboardCamera.setMouse(button, false);
 
         return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private CefBrowser navBrowser() {
+        return data == null ? null : data.browser;
+    }
+
+    private int navButtonX(int idx) {
+        return NAV_X + (NAV_BUTTON_W + NAV_GAP) * (idx + 1);
+    }
+
+    private void drawNavigationOverlay(net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY) {
+        CefBrowser browser = navBrowser();
+        if (browser == null)
+            return;
+
+        drawNavButton(graphics, NAV_X, NAV_Y, NAV_BUTTON_W, NAV_BUTTON_H, navExpanded ? "X" : "=", true, mouseX, mouseY);
+        if (!navExpanded)
+            return;
+
+        drawNavButton(graphics, navButtonX(0), NAV_Y, NAV_BUTTON_W, NAV_BUTTON_H, "<", browser.canGoBack(), mouseX, mouseY);
+        drawNavButton(graphics, navButtonX(1), NAV_Y, NAV_BUTTON_W, NAV_BUTTON_H, ">", browser.canGoForward(), mouseX, mouseY);
+        drawNavButton(graphics, navButtonX(2), NAV_Y, NAV_BUTTON_W, NAV_BUTTON_H, "R", true, mouseX, mouseY);
+    }
+
+    private void drawNavButton(net.minecraft.client.gui.GuiGraphics graphics, int x, int y, int w, int h, String label, boolean enabled, int mouseX, int mouseY) {
+        boolean hover = inside(mouseX, mouseY, x, y, w, h);
+        int color;
+        if (!enabled)
+            color = 0x66303030;
+        else if (hover)
+            color = 0xCC3F3F3F;
+        else
+            color = 0xAA202020;
+
+        graphics.fill(x, y, x + w, y + h, color);
+        graphics.drawCenteredString(minecraft.font, label, x + (w / 2), y + 3, enabled ? 0xFFFFFFFF : 0x88FFFFFF);
+    }
+
+    private boolean handleNavigationClick(double mouseX, double mouseY, int button) {
+        if (showWarning || button != 0)
+            return false;
+
+        CefBrowser browser = navBrowser();
+        if (browser == null)
+            return false;
+
+        int mx = (int) mouseX;
+        int my = (int) mouseY;
+        if (inside(mx, my, NAV_X, NAV_Y, NAV_BUTTON_W, NAV_BUTTON_H)) {
+            navExpanded = !navExpanded;
+            suppressNextRelease = true;
+            return true;
+        }
+
+        if (!navExpanded)
+            return false;
+
+        if (inside(mx, my, navButtonX(0), NAV_Y, NAV_BUTTON_W, NAV_BUTTON_H)) {
+            if (browser.canGoBack())
+                browser.goBack();
+            suppressNextRelease = true;
+            return true;
+        }
+
+        if (inside(mx, my, navButtonX(1), NAV_Y, NAV_BUTTON_W, NAV_BUTTON_H)) {
+            if (browser.canGoForward())
+                browser.goForward();
+            suppressNextRelease = true;
+            return true;
+        }
+
+        if (inside(mx, my, navButtonX(2), NAV_Y, NAV_BUTTON_W, NAV_BUTTON_H)) {
+            browser.reload();
+            suppressNextRelease = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static boolean inside(int mx, int my, int x, int y, int w, int h) {
+        return mx >= x && mx <= x + w && my >= y && my <= y + h;
     }
 
     @Override

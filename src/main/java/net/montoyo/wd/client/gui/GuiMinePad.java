@@ -25,6 +25,7 @@ import net.montoyo.wd.client.ClientProxy;
 import net.montoyo.wd.utilities.browser.WDBrowser;
 import net.montoyo.wd.utilities.browser.handlers.js.Scripts;
 import net.montoyo.wd.utilities.data.BlockSide;
+import org.cef.browser.CefBrowser;
 import org.cef.misc.CefCursorType;
 import org.lwjgl.glfw.GLFW;
 
@@ -34,12 +35,19 @@ import static net.neoforged.api.distmarker.Dist.CLIENT;
 
 @OnlyIn(CLIENT)
 public class GuiMinePad extends WDScreen {
+	private static final int NAV_X_OFFSET = 24;
+	private static final int NAV_Y_OFFSET = 24;
+	private static final int NAV_BUTTON_W = 18;
+	private static final int NAV_BUTTON_H = 14;
+	private static final int NAV_GAP = 3;
 
 	private ClientProxy.PadData pad;
 	private double vx;
 	private double vy;
 	private double vw;
 	private double vh;
+	private boolean navExpanded = false;
+	private boolean suppressNextRelease = false;
 
 	public GuiMinePad() {
 		super(Component.nullToEmpty(null));
@@ -129,6 +137,7 @@ public class GuiMinePad extends WDScreen {
 						"webdisplays.gui.minepad.close"
 				), (int) vx + 4, (int) vy - minecraft.font.lineHeight - 3, 16777215, true
 		);
+		drawNavigationOverlay(graphics, mouseX, mouseY);
 	}
 
 	@Override
@@ -159,6 +168,9 @@ public class GuiMinePad extends WDScreen {
 			return true;
 		}
 
+		if (pressed && handleNavigationShortcut(keyCode, modifiers))
+			return true;
+
 		InputConstants.Key iuKey = InputConstants.getKey(keyCode, scanCode);
 		String keystr = iuKey.getDisplayName().getString();
 //        System.out.println("KEY STR " + keystr);
@@ -186,6 +198,37 @@ public class GuiMinePad extends WDScreen {
 		return false;
 	}
 
+	private boolean handleNavigationShortcut(int keyCode, int modifiers) {
+		if (pad == null || pad.view == null)
+			return false;
+
+		boolean ctrl = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
+		boolean shift = (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
+		boolean alt = (modifiers & GLFW.GLFW_MOD_ALT) != 0;
+
+		if (keyCode == GLFW.GLFW_KEY_F5 || (ctrl && keyCode == GLFW.GLFW_KEY_R)) {
+			if (ctrl && shift)
+				pad.view.reloadIgnoreCache();
+			else
+				pad.view.reload();
+			return true;
+		}
+
+		if (alt && keyCode == GLFW.GLFW_KEY_LEFT) {
+			if (pad.view.canGoBack())
+				pad.view.goBack();
+			return true;
+		}
+
+		if (alt && keyCode == GLFW.GLFW_KEY_RIGHT) {
+			if (pad.view.canGoForward())
+				pad.view.goForward();
+			return true;
+		}
+
+		return false;
+	}
+
 	@Override
 	public void mouseMoved(double mouseX, double mouseY) {
 		super.mouseMoved(mouseX, mouseY);
@@ -194,12 +237,20 @@ public class GuiMinePad extends WDScreen {
 
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		if (handleNavigationClick(mouseX, mouseY, button))
+			return true;
+
 		mouse(button, true, (int) mouseX, (int) mouseY, 0);
 		return super.mouseClicked(mouseX, mouseY, button);
 	}
 
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		if (suppressNextRelease) {
+			suppressNextRelease = false;
+			return true;
+		}
+
 		mouse(button, false, (int) mouseX, (int) mouseY, 0);
 		return super.mouseReleased(mouseX, mouseY, button);
 	}
@@ -354,5 +405,101 @@ public class GuiMinePad extends WDScreen {
 			JsonObject object = browser.pointerLockElement().getObj();
 			if (object != null) updateCrd(object);
 		}
+	}
+
+	private CefBrowser navBrowser() {
+		return (pad == null) ? null : pad.view;
+	}
+
+	private int navBaseX() {
+		return (int) vx + NAV_X_OFFSET;
+	}
+
+	private int navBaseY() {
+		return (int) vy + NAV_Y_OFFSET;
+	}
+
+	private int navButtonX(int idx) {
+		return navBaseX() + (NAV_BUTTON_W + NAV_GAP) * (idx + 1);
+	}
+
+	private void drawNavigationOverlay(GuiGraphics graphics, int mouseX, int mouseY) {
+		CefBrowser browser = navBrowser();
+		if (browser == null)
+			return;
+
+		int x = navBaseX();
+		int y = navBaseY();
+		drawNavButton(graphics, x, y, NAV_BUTTON_W, NAV_BUTTON_H, navExpanded ? "X" : "=", true, mouseX, mouseY);
+
+		if (!navExpanded)
+			return;
+
+		drawNavButton(graphics, navButtonX(0), y, NAV_BUTTON_W, NAV_BUTTON_H, "<", browser.canGoBack(), mouseX, mouseY);
+		drawNavButton(graphics, navButtonX(1), y, NAV_BUTTON_W, NAV_BUTTON_H, ">", browser.canGoForward(), mouseX, mouseY);
+		drawNavButton(graphics, navButtonX(2), y, NAV_BUTTON_W, NAV_BUTTON_H, "R", true, mouseX, mouseY);
+	}
+
+	private void drawNavButton(GuiGraphics graphics, int x, int y, int w, int h, String label, boolean enabled, int mouseX, int mouseY) {
+		boolean hover = inside(mouseX, mouseY, x, y, w, h);
+		int color;
+		if (!enabled)
+			color = 0x66303030;
+		else if (hover)
+			color = 0xCC3F3F3F;
+		else
+			color = 0xAA202020;
+
+		graphics.fill(x, y, x + w, y + h, color);
+		graphics.drawCenteredString(minecraft.font, label, x + (w / 2), y + 3, enabled ? 0xFFFFFFFF : 0x88FFFFFF);
+	}
+
+	private boolean handleNavigationClick(double mouseX, double mouseY, int button) {
+		if (button != 0)
+			return false;
+
+		CefBrowser browser = navBrowser();
+		if (browser == null)
+			return false;
+
+		int mx = (int) mouseX;
+		int my = (int) mouseY;
+		int x = navBaseX();
+		int y = navBaseY();
+
+		if (inside(mx, my, x, y, NAV_BUTTON_W, NAV_BUTTON_H)) {
+			navExpanded = !navExpanded;
+			suppressNextRelease = true;
+			return true;
+		}
+
+		if (!navExpanded)
+			return false;
+
+		if (inside(mx, my, navButtonX(0), y, NAV_BUTTON_W, NAV_BUTTON_H)) {
+			if (browser.canGoBack())
+				browser.goBack();
+			suppressNextRelease = true;
+			return true;
+		}
+
+		if (inside(mx, my, navButtonX(1), y, NAV_BUTTON_W, NAV_BUTTON_H)) {
+			if (browser.canGoForward())
+				browser.goForward();
+			suppressNextRelease = true;
+			return true;
+		}
+
+		if (inside(mx, my, navButtonX(2), y, NAV_BUTTON_W, NAV_BUTTON_H)) {
+			browser.reload();
+			suppressNextRelease = true;
+			return true;
+		}
+
+		return false;
+	}
+
+	private static boolean inside(int mx, int my, int x, int y, int w, int h) {
+		return mx >= x && mx <= x + w && my >= y && my <= y + h;
 	}
 }

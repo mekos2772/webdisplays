@@ -42,6 +42,8 @@ public class DisplayHandler implements CefDisplayHandler {
 
         // enables a custom pointer lock api
         browser.executeJavaScript(Scripts.POINTER_LOCK, "WebDisplays", 0);
+        browser.executeJavaScript(Scripts.SAME_TAB_NAVIGATION, "WebDisplays", 0);
+        browser.executeJavaScript(Scripts.VIRTUAL_NAV_OVERLAY, "WebDisplays", 0);
     }
 
     @Override

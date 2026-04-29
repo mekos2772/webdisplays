@@ -81,6 +81,8 @@ import net.montoyo.wd.utilities.Log;
 import net.montoyo.wd.utilities.Multiblock;
 import net.montoyo.wd.utilities.browser.WDBrowser;
 import net.montoyo.wd.utilities.browser.handlers.DisplayHandler;
+import net.montoyo.wd.utilities.browser.handlers.LifeSpanHandler;
+import net.montoyo.wd.utilities.browser.handlers.RequestHandler;
 import net.montoyo.wd.utilities.browser.handlers.WDRouter;
 import net.montoyo.wd.utilities.data.BlockSide;
 import net.montoyo.wd.utilities.data.Rotation;
@@ -283,6 +285,8 @@ public class ClientProxy extends SharedProxy implements ResourceManagerReloadLis
 		);
 
 		MCEF.getClient().addDisplayHandler(DisplayHandler.INSTANCE);
+		MCEF.getClient().getHandle().addLifeSpanHandler(LifeSpanHandler.INSTANCE);
+		MCEF.getClient().getHandle().addRequestHandler(RequestHandler.INSTANCE);
 		MCEF.getClient().getHandle().addMessageRouter(CefMessageRouter.create(WDRouter.INSTANCE));
 
 		findAdvancementToProgressField();
@@ -706,6 +710,9 @@ public class ClientProxy extends SharedProxy implements ResourceManagerReloadLis
 			else if (item == ItemRegistry.LASER_POINTER.get())
 				renderer = laserPointerRenderer;
 			else
+				return;
+
+			if (renderer == null)
 				return;
 			HumanoidArm handSide = mc.player.getMainArm();
 			if (ev.getHand() == InteractionHand.OFF_HAND)

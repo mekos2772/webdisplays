@@ -41,6 +41,7 @@ import net.montoyo.wd.miniserv.SyncPlugin;
 import net.montoyo.wd.net.WDNetworkRegistry;
 import net.montoyo.wd.net.client_bound.S2CMessageAddScreen;
 import net.montoyo.wd.net.client_bound.S2CMessageScreenUpdate;
+import net.montoyo.wd.net.server_bound.C2SMessageScreenUrl;
 import net.montoyo.wd.registry.BlockRegistry;
 import net.montoyo.wd.registry.ItemRegistry;
 import net.montoyo.wd.registry.TileRegistry;
@@ -61,6 +62,8 @@ import org.cef.browser.CefBrowser;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -606,8 +609,27 @@ public class ScreenBlockEntity extends BlockEntity {
         ytVolume = volume;
         String volumeScript = buildVolumeScript(volume);
         for (ScreenData scr : screens) {
-            if (scr.autoVolume && scr.browser != null && !scr.browser.isLoading())
+            if (scr.autoVolume && scr.browser != null && !scr.browser.isLoading() && shouldInjectDistanceVolume(scr))
                 scr.browser.executeJavaScript(volumeScript, scr.browser.getURL(), 0);
+        }
+    }
+
+    private static boolean shouldInjectDistanceVolume(ScreenData scr) {
+        if (scr.videoType != null)
+            return true;
+
+        String url = scr.url;
+        if (url == null || url.isBlank())
+            return false;
+
+        try {
+            String host = new URL(url).getHost().toLowerCase(Locale.ROOT);
+            return host.equals("www.bilibili.com")
+                    || host.equals("bilibili.com")
+                    || host.endsWith(".bilibili.com")
+                    || host.equals("b23.tv");
+        } catch (MalformedURLException ignored) {
+            return false;
         }
     }
 
@@ -633,12 +655,16 @@ public class ScreenBlockEntity extends BlockEntity {
                     throw new RuntimeException(e);
                 }
                 boolean blacklisted = WebDisplays.isSiteBlacklisted(url);
-                scr.url = blacklisted ? WebDisplays.BLACKLIST_URL : url; //FIXME: This is an invalid fix for something that CANNOT be fixed
+                String nextUrl = blacklisted ? WebDisplays.BLACKLIST_URL : webUrl;
+                String previousUrl = scr.url;
+                scr.url = nextUrl; //FIXME: This is an invalid fix for something that CANNOT be fixed
                 scr.videoType = VideoType.getTypeFromURL(scr.url);
                 ytVolume = -1.0f; // Force volume update on next distance tick
 
                 if (blacklisted && scr.browser != null)
                     scr.browser.loadURL(WebDisplays.BLACKLIST_URL);
+                else if (level != null && level.isClientSide && !nextUrl.equals(previousUrl))
+                    WDNetworkRegistry.sendToServer(new C2SMessageScreenUrl(getBlockPos(), scr.side, nextUrl));
 
                 break;
             }

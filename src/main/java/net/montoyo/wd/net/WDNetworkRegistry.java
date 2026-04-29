@@ -32,6 +32,7 @@ public class WDNetworkRegistry {
 
         // screen modifications
         registrar.playToServer(Packet.typeOf(C2SMessageScreenCtrl.class), C2SMessageScreenCtrl.STREAM_CODEC, (pkt, ctx) -> pkt.handle(ctx));
+        registrar.playToServer(Packet.typeOf(C2SMessageScreenUrl.class), C2SMessageScreenUrl.STREAM_CODEC, (pkt, ctx) -> pkt.handle(ctx));
         registrar.playToClient(Packet.typeOf(S2CMessageScreenUpdate.class), S2CMessageScreenUpdate.STREAM_CODEC, (pkt, ctx) -> pkt.handle(ctx));
 
         // redstone control
