@@ -7,9 +7,16 @@
         var ROOT_ID = "wd-nav-root";
         var STYLE_ID = "wd-nav-style";
         var expanded = false;
+        var observer = null;
+        var keepAliveTimer = 0;
+
+        function navApi() {
+            return window.__wdNavApi || {};
+        }
 
         function addStyle() {
-            if (document.getElementById(STYLE_ID))
+            var head = document.head || document.documentElement;
+            if (!head || document.getElementById(STYLE_ID))
                 return;
 
             var style = document.createElement("style");
@@ -22,7 +29,7 @@
                 "#" + ROOT_ID + " .wd-btn:hover{background:rgba(44,44,44,.86);}" +
                 "#" + ROOT_ID + " .wd-hidden{display:none !important;}" +
                 "#" + ROOT_ID + " .wd-disabled{opacity:.42;cursor:default !important;}";
-            document.head.appendChild(style);
+            head.appendChild(style);
         }
 
         function btn(text, title) {
@@ -34,14 +41,53 @@
         }
 
         function updateState(backBtn, forwardBtn) {
+            var api = navApi();
             var canBack = false;
-            try {
-                canBack = history.length > 1;
-            } catch (e) {}
+            var canForward = false;
 
-            if (canBack) backBtn.classList.remove("wd-disabled");
-            else backBtn.classList.add("wd-disabled");
-            forwardBtn.classList.remove("wd-disabled");
+            try {
+                canBack = typeof api.canGoBack === "function" ? !!api.canGoBack() : history.length > 1;
+            } catch (e) {
+            }
+
+            try {
+                canForward = typeof api.canGoForward === "function" ? !!api.canGoForward() : false;
+            } catch (e) {
+            }
+
+            backBtn.classList.toggle("wd-disabled", !canBack);
+            forwardBtn.classList.toggle("wd-disabled", !canForward);
+        }
+
+        function setExpanded(toggle, backBtn, forwardBtn, reloadBtn, value) {
+            expanded = !!value;
+            toggle.textContent = expanded ? "X" : "=";
+            backBtn.classList.toggle("wd-hidden", !expanded);
+            forwardBtn.classList.toggle("wd-hidden", !expanded);
+            reloadBtn.classList.toggle("wd-hidden", !expanded);
+            updateState(backBtn, forwardBtn);
+        }
+
+        function attachKeepAlive() {
+            if (observer || !document.documentElement)
+                return;
+
+            observer = new MutationObserver(function() {
+                if (!document.getElementById(ROOT_ID))
+                    mount();
+            });
+
+            observer.observe(document.documentElement, {
+                childList: true,
+                subtree: true
+            });
+
+            if (!keepAliveTimer) {
+                keepAliveTimer = window.setInterval(function() {
+                    if (!document.getElementById(ROOT_ID))
+                        mount();
+                }, 1500);
+            }
         }
 
         function mount() {
@@ -50,57 +96,71 @@
                 return;
             }
 
-            if (document.getElementById(ROOT_ID))
-                return;
-
             addStyle();
+            attachKeepAlive();
+
+            var existing = document.getElementById(ROOT_ID);
+            if (existing) {
+                existing.style.display = "";
+                return;
+            }
 
             var root = document.createElement("div");
             root.id = ROOT_ID;
 
-            var toggle = btn("=", "显示/隐藏导航按钮");
-            var backBtn = btn("<", "后退");
-            var forwardBtn = btn(">", "前进");
-            var reloadBtn = btn("R", "刷新");
+            var toggle = btn("=", "Toggle navigation buttons");
+            var backBtn = btn("<", "Back");
+            var forwardBtn = btn(">", "Forward");
+            var reloadBtn = btn("R", "Reload");
 
             backBtn.classList.add("wd-hidden");
             forwardBtn.classList.add("wd-hidden");
             reloadBtn.classList.add("wd-hidden");
 
-            function setExpanded(v) {
-                expanded = !!v;
-                toggle.textContent = expanded ? "X" : "=";
-                backBtn.classList.toggle("wd-hidden", !expanded);
-                forwardBtn.classList.toggle("wd-hidden", !expanded);
-                reloadBtn.classList.toggle("wd-hidden", !expanded);
-                updateState(backBtn, forwardBtn);
-            }
-
             toggle.addEventListener("click", function(ev) {
                 ev.preventDefault();
                 ev.stopPropagation();
-                setExpanded(!expanded);
+                setExpanded(toggle, backBtn, forwardBtn, reloadBtn, !expanded);
             }, true);
 
             backBtn.addEventListener("click", function(ev) {
                 ev.preventDefault();
                 ev.stopPropagation();
-                try { history.back(); } catch (e) {}
+                var api = navApi();
+                try {
+                    if (!api.goBack || !api.goBack())
+                        history.back();
+                } catch (e) {
+                }
             }, true);
 
             forwardBtn.addEventListener("click", function(ev) {
                 ev.preventDefault();
                 ev.stopPropagation();
-                try { history.forward(); } catch (e) {}
+                var api = navApi();
+                try {
+                    if (!api.goForward || !api.goForward())
+                        history.forward();
+                } catch (e) {
+                }
             }, true);
 
             reloadBtn.addEventListener("click", function(ev) {
                 ev.preventDefault();
                 ev.stopPropagation();
-                try { location.reload(); } catch (e) {}
+                var api = navApi();
+                try {
+                    if (!api.reload || !api.reload())
+                        location.reload();
+                } catch (e) {
+                }
             }, true);
 
             root.addEventListener("mousedown", function(ev) {
+                ev.stopPropagation();
+            }, true);
+
+            root.addEventListener("mouseup", function(ev) {
                 ev.stopPropagation();
             }, true);
 
@@ -110,12 +170,22 @@
             root.appendChild(reloadBtn);
             document.body.appendChild(root);
 
-            setExpanded(false);
+            setExpanded(toggle, backBtn, forwardBtn, reloadBtn, false);
+
             window.addEventListener("popstate", function() {
                 updateState(backBtn, forwardBtn);
-            });
+            }, true);
+            window.addEventListener("pageshow", function() {
+                updateState(backBtn, forwardBtn);
+                mount();
+            }, true);
+            window.addEventListener("hashchange", function() {
+                updateState(backBtn, forwardBtn);
+            }, true);
         }
 
+        window.__wdNavApi = window.__wdNavApi || {};
+        window.__wdNavApi.ensureOverlay = mount;
         mount();
     })();
 }

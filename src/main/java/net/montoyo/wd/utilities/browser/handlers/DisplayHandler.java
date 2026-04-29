@@ -13,8 +13,26 @@ import org.cef.handler.CefDisplayHandler;
 
 public class DisplayHandler implements CefDisplayHandler {
 
-
     public static final CefDisplayHandler INSTANCE = new DisplayHandler();
+
+    public static void injectScripts(CefBrowser browser) {
+        if (browser == null)
+            return;
+
+        browser.executeJavaScript(Scripts.POINTER_LOCK, "WebDisplays", 0);
+        browser.executeJavaScript(Scripts.SAME_TAB_NAVIGATION, "WebDisplays", 0);
+        browser.executeJavaScript(Scripts.VIRTUAL_NAV_OVERLAY, "WebDisplays", 0);
+    }
+
+    public static void injectScripts(CefBrowser browser, CefFrame frame) {
+        if (frame != null && frame.isValid()) {
+            frame.executeJavaScript(Scripts.POINTER_LOCK, "WebDisplays", 0);
+            frame.executeJavaScript(Scripts.SAME_TAB_NAVIGATION, "WebDisplays", 0);
+            frame.executeJavaScript(Scripts.VIRTUAL_NAV_OVERLAY, "WebDisplays", 0);
+        }
+
+        injectScripts(browser);
+    }
 
     @Override
     public void onAddressChange(CefBrowser browser, CefFrame cefFrame, String url) {
@@ -40,10 +58,8 @@ public class DisplayHandler implements CefDisplayHandler {
                 tes.updateClientSideURL(browser, url);
         }
 
-        // enables a custom pointer lock api
-        browser.executeJavaScript(Scripts.POINTER_LOCK, "WebDisplays", 0);
-        browser.executeJavaScript(Scripts.SAME_TAB_NAVIGATION, "WebDisplays", 0);
-        browser.executeJavaScript(Scripts.VIRTUAL_NAV_OVERLAY, "WebDisplays", 0);
+        if (browser != null)
+            injectScripts(browser, cefFrame != null && cefFrame.isMain() ? cefFrame : browser.getMainFrame());
     }
 
     @Override

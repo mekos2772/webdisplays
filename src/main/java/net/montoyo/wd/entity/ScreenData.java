@@ -187,6 +187,7 @@ public class ScreenData {
 
     public void createBrowser(ScreenBlockEntity be, boolean doAnim) {
         if (WebDisplays.PROXY instanceof ClientProxy && MCEF.isInitialized()) {
+            ((ClientProxy) WebDisplays.PROXY).ensureCefReady();
             browser = WDBrowser.createBrowser(WebDisplays.applyBlacklist(url != null ? url : "https://www.google.com"), false);
 
             // set screen

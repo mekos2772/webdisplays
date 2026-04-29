@@ -399,6 +399,8 @@ public class ScreenBlockEntity extends BlockEntity {
             if (button == 1) button = 0;
             else if (button == 0) button = 1;
 
+            mcefBrowser.setFocus(true);
+
             if (event == ClickControl.ControlType.CLICK) {
                 mcefBrowser.sendMouseMove(vec.x, vec.y);                                            //Move to target
                 mcefBrowser.sendMousePress(vec.x, vec.y, button);                              //Press
@@ -410,8 +412,6 @@ public class ScreenBlockEntity extends BlockEntity {
                 mcefBrowser.sendMouseMove(vec.x, vec.y);                                            //Move
             else if (event == ClickControl.ControlType.UP)
                 mcefBrowser.sendMouseRelease(scr.lastMousePos.x, scr.lastMousePos.y, button);  //Release
-
-            mcefBrowser.setFocus(true);
 
             if (vec != null) {
                 scr.lastMousePos.x = vec.x;

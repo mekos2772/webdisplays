@@ -14,6 +14,7 @@ import net.minecraft.world.item.ItemStack;
 import net.montoyo.wd.WebDisplays;
 import net.montoyo.wd.client.gui.controls.*;
 import net.montoyo.wd.client.gui.loading.FillControl;
+import net.montoyo.wd.config.CommonConfig;
 import net.montoyo.wd.core.ScreenRights;
 import net.montoyo.wd.entity.ScreenData;
 import net.montoyo.wd.entity.ScreenBlockEntity;
@@ -206,15 +207,42 @@ public class GuiScreenConfig extends WDScreen {
             if(x < 1 || y < 1)
                 throw new NumberFormatException(); //I'm lazy
 
-            if(x != scr.resolution.x || y != scr.resolution.y)
-                WDNetworkRegistry.sendToServer(C2SMessageScreenCtrl.resolution(tes, side, new Vector2i(x, y)));
+            Vector2i requested = new Vector2i(x, y);
+            Vector2i clamped = new Vector2i(x, y);
+            clampResolution(clamped);
+
+            if (clamped.x != requested.x || clamped.y != requested.y) {
+                minecraft.player.displayClientMessage(Component.literal(
+                        String.format("Resolution was adjusted to %dx%d to fit current limits.", clamped.x, clamped.y)
+                ), true);
+                tfResX.setText("" + clamped.x);
+                tfResY.setText("" + clamped.y);
+            }
+
+            if(clamped.x != scr.resolution.x || clamped.y != scr.resolution.y)
+                WDNetworkRegistry.sendToServer(C2SMessageScreenCtrl.resolution(tes, side, clamped));
         } catch(NumberFormatException ex) {
+            minecraft.player.displayClientMessage(Component.literal("Invalid resolution or aspect ratio."), true);
             //Roll back
             tfResX.setText("" + scr.resolution.x);
             tfResY.setText("" + scr.resolution.y);
         }
 
         btnSetRes.setDisabled(true);
+    }
+
+    private static void clampResolution(Vector2i resolution) {
+        if (resolution.x > CommonConfig.Screen.maxResolutionX) {
+            float newY = ((float) resolution.y) * ((float) CommonConfig.Screen.maxResolutionX) / ((float) resolution.x);
+            resolution.x = CommonConfig.Screen.maxResolutionX;
+            resolution.y = (int) newY;
+        }
+
+        if (resolution.y > CommonConfig.Screen.maxResolutionY) {
+            float newX = ((float) resolution.x) * ((float) CommonConfig.Screen.maxResolutionY) / ((float) resolution.y);
+            resolution.x = (int) newX;
+            resolution.y = CommonConfig.Screen.maxResolutionY;
+        }
     }
 
     @GuiSubscribe

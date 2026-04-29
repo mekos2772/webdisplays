@@ -82,6 +82,7 @@ import net.montoyo.wd.utilities.Multiblock;
 import net.montoyo.wd.utilities.browser.WDBrowser;
 import net.montoyo.wd.utilities.browser.handlers.DisplayHandler;
 import net.montoyo.wd.utilities.browser.handlers.LifeSpanHandler;
+import net.montoyo.wd.utilities.browser.handlers.LoadHandler;
 import net.montoyo.wd.utilities.browser.handlers.RequestHandler;
 import net.montoyo.wd.utilities.browser.handlers.WDRouter;
 import net.montoyo.wd.utilities.data.BlockSide;
@@ -203,21 +204,27 @@ public class ClientProxy extends SharedProxy implements ResourceManagerReloadLis
 		public int activeCursor;
 		
 		private PadData(String url, UUID id) {
+			ensureView(url);
+			isInHotbar = true;
+			this.id = id;
+		}
+
+		private void ensureView(String url) {
+			if (view != null || !MCEF.isInitialized())
+				return;
+
 			String webUrl;
 			try {
 				webUrl = ScreenBlockEntity.url(url);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
+
 			view = WDBrowser.createBrowser(WebDisplays.applyBlacklist(webUrl), false);
 			if (view instanceof MCEFBrowser browser) {
 				browser.resize((int) WebDisplays.INSTANCE.padResX, (int) WebDisplays.INSTANCE.padResY);
-				browser.setCursorChangeListener((cursor) -> {
-					activeCursor = cursor;
-				});
+				browser.setCursorChangeListener((cursor) -> activeCursor = cursor);
 			}
-			isInHotbar = true;
-			this.id = id;
 		}
 
 		public void updateTime() {
@@ -234,6 +241,7 @@ public class ClientProxy extends SharedProxy implements ResourceManagerReloadLis
 	private LaserPointerRenderer laserPointerRenderer;
 	private Screen nextScreen;
 	private boolean isF1Down;
+	private boolean cefHooksInstalled;
 	
 	//Miniserv handling
 	private int miniservPort;
@@ -266,30 +274,14 @@ public class ClientProxy extends SharedProxy implements ResourceManagerReloadLis
 	public void preInit() {
 		super.preInit();
 		mc = Minecraft.getInstance();
+		minePadRenderer = new MinePadRenderer();
+		laserPointerRenderer = new LaserPointerRenderer();
 		NeoForge.EVENT_BUS.register(this);
 	}
 	
 	@Override
 	public void onCefInit() {
-		minePadRenderer = new MinePadRenderer();
-		laserPointerRenderer = new LaserPointerRenderer();
-
-		if (!MCEF.isInitialized()) return;
-
-		MCEF.getApp().getHandle().registerSchemeHandlerFactory(
-				"webdisplays", "",
-				(browser, frame, url, request) -> {
-					// TODO: check if it's a webdisplays browser?
-					return new WDScheme(request.getURL());
-				}
-		);
-
-		MCEF.getClient().addDisplayHandler(DisplayHandler.INSTANCE);
-		MCEF.getClient().getHandle().addLifeSpanHandler(LifeSpanHandler.INSTANCE);
-		MCEF.getClient().getHandle().addRequestHandler(RequestHandler.INSTANCE);
-		MCEF.getClient().getHandle().addMessageRouter(CefMessageRouter.create(WDRouter.INSTANCE));
-
-		findAdvancementToProgressField();
+		mc.submit(this::ensureCefReady);
 	}
 	
 	@Override
@@ -616,6 +608,8 @@ public class ClientProxy extends SharedProxy implements ResourceManagerReloadLis
 	
 	@SubscribeEvent
 	public void onTick(ClientTickEvent.Pre ev) {
+		ensureCefReady();
+
 		// Phase check removed - NeoForge 1.21.1 uses separate Pre/Post event classes
 		
 		//Help
@@ -764,12 +758,68 @@ public class ClientProxy extends SharedProxy implements ResourceManagerReloadLis
 	private void updatePad(UUID id, CompoundTag tag, boolean isSelected) {
 		PadData pd = padMap.get(id);
 		
-		if (pd != null)
+		if (pd != null) {
 			pd.isInHotbar = true;
-		else if (isSelected && tag.contains("PadURL")) {
+			if (isSelected && tag.contains("PadURL"))
+				pd.ensureView(tag.getString("PadURL"));
+		} else if (isSelected && tag.contains("PadURL") && MCEF.isInitialized()) {
 			pd = new PadData(tag.getString("PadURL"), id);
 			padMap.put(id, pd);
 			padList.add(pd);
+		}
+	}
+
+	public void ensureCefReady() {
+		if (!MCEF.isInitialized() || cefHooksInstalled)
+			return;
+
+		MCEF.getApp().getHandle().registerSchemeHandlerFactory(
+				"webdisplays", "",
+				(browser, frame, url, request) -> new WDScheme(request.getURL())
+		);
+
+		MCEF.getClient().addDisplayHandler(DisplayHandler.INSTANCE);
+		MCEF.getClient().addLoadHandler(LoadHandler.INSTANCE);
+		MCEF.getClient().getHandle().addLifeSpanHandler(LifeSpanHandler.INSTANCE);
+		MCEF.getClient().getHandle().addRequestHandler(RequestHandler.INSTANCE);
+		MCEF.getClient().getHandle().addMessageRouter(CefMessageRouter.create(WDRouter.INSTANCE));
+		findAdvancementToProgressField();
+		cefHooksInstalled = true;
+		recoverDeferredClientBrowsers();
+	}
+
+	private void recoverDeferredClientBrowsers() {
+		Vec3 cameraPos = null;
+		if (mc != null && mc.getEntityRenderDispatcher().camera != null)
+			cameraPos = mc.getEntityRenderDispatcher().camera.getPosition();
+		else if (mc != null && mc.player != null)
+			cameraPos = mc.player.position();
+
+		for (ScreenBlockEntity tes : screenTracking) {
+			if (tes == null || !tes.isLoaded())
+				continue;
+
+			if (cameraPos == null || distanceTo(tes, cameraPos) <= WebDisplays.INSTANCE.loadDistance2 * 16)
+				tes.activate();
+		}
+
+		if (mc == null || mc.player == null)
+			return;
+
+		for (PadData pd : padList) {
+			if (pd.view != null)
+				continue;
+
+			for (ItemStack stack : mc.player.getInventory().items) {
+				if (stack.getItem() != ItemRegistry.MINEPAD.get())
+					continue;
+
+				CompoundTag tag = stack.has(DataComponents.CUSTOM_DATA) ? stack.get(DataComponents.CUSTOM_DATA).copyTag() : null;
+				if (tag != null && tag.contains("PadID") && pd.id.equals(tag.getUUID("PadID")) && tag.contains("PadURL")) {
+					pd.ensureView(tag.getString("PadURL"));
+					break;
+				}
+			}
 		}
 	}
 	
