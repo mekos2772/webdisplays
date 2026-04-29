@@ -16,6 +16,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
@@ -63,6 +64,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 
 
@@ -86,7 +88,7 @@ public class ScreenBlockEntity extends BlockEntity {
     private final ArrayList<ScreenData> screens = new ArrayList<>();
     private net.minecraft.world.phys.AABB renderBB = new net.minecraft.world.phys.AABB(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
     private boolean loaded = true;
-    public float ytVolume = Float.POSITIVE_INFINITY;
+    public float ytVolume = 1.0f;
 
     public boolean isLoaded() {
         return loaded;
@@ -584,39 +586,41 @@ public class ScreenBlockEntity extends BlockEntity {
         return renderBB;
     }
 
-//	//FIXME: Not called if enableSoundDistance is false
-//	public void updateTrackDistance(double d, float masterVolume) {
-//		final WebDisplays wd = WebDisplays.INSTANCE;
-//		boolean needsComputation = true;
-//		int intPart = 0; //Need to initialize those because the compiler is stupid
-//		int fracPart = 0;
-//
-//		for (Screen scr : screens) {
-//			if (scr.autoVolume && scr.videoType != null && scr.browser != null && !scr.browser.isPageLoading()) {
-//				if (needsComputation) {
-//					float dist = (float) Math.sqrt(d);
-//					float vol;
-//
-//					if (dist <= wd.avDist100)
-//						vol = masterVolume * wd.ytVolume;
-//					else if (dist >= wd.avDist0)
-//						vol = 0.0f;
-//					else
-//						vol = (1.0f - (dist - wd.avDist100) / (wd.avDist0 - wd.avDist100)) * masterVolume * wd.ytVolume;
-//
-//					if (Math.abs(ytVolume - vol) < 0.5f)
-//						return; //Delta is too small
-//
-//					ytVolume = vol;
-//					intPart = (int) vol; //Manually convert to string, probably faster in that case...
-//					fracPart = ((int) (vol * 100.0f)) - intPart * 100;
-//					needsComputation = false;
-//				}
-//
-//				scr.browser.runJS(scr.videoType.getVolumeJSQuery(intPart, fracPart), "");
-//			}
-//		}
-//	}
+    public void updateTrackDistance(double distanceSq) {
+        final WebDisplays wd = WebDisplays.INSTANCE;
+        float volume = wd.ytVolume;
+
+        float dist = (float) Math.sqrt(distanceSq);
+        if (dist > wd.avDist100) {
+            if (dist >= wd.avDist0) {
+                volume = 0.0f;
+            } else {
+                volume *= 1.0f - (dist - wd.avDist100) / (wd.avDist0 - wd.avDist100);
+            }
+        }
+
+        volume = Mth.clamp(volume, 0.0f, 1.0f);
+        if (Math.abs(ytVolume - volume) < 0.01f)
+            return;
+
+        ytVolume = volume;
+        String volumeScript = buildVolumeScript(volume);
+        for (ScreenData scr : screens) {
+            if (scr.autoVolume && scr.browser != null && !scr.browser.isLoading())
+                scr.browser.executeJavaScript(volumeScript, scr.browser.getURL(), 0);
+        }
+    }
+
+    private static String buildVolumeScript(float volume) {
+        String volume01 = String.format(Locale.ROOT, "%.4f", volume);
+        int volume100 = Mth.clamp(Math.round(volume * 100.0f), 0, 100);
+        return "(function(){"
+                + "const v=" + volume01 + ";"
+                + "document.querySelectorAll('video,audio').forEach(function(el){try{el.volume=v;}catch(e){}});"
+                + "try{const yt=document.getElementById('movie_player');if(yt&&typeof yt.setVolume==='function')yt.setVolume(" + volume100 + ");}catch(e){}"
+                + "try{const player=document.getElementsByClassName('html5-video-player')[0];if(player&&typeof player.setVolume==='function')player.setVolume(" + volume100 + ");}catch(e){}"
+                + "})();";
+    }
 
     public void updateClientSideURL(CefBrowser target, String url) {
         for (ScreenData scr : screens) {
@@ -631,7 +635,7 @@ public class ScreenBlockEntity extends BlockEntity {
                 boolean blacklisted = WebDisplays.isSiteBlacklisted(url);
                 scr.url = blacklisted ? WebDisplays.BLACKLIST_URL : url; //FIXME: This is an invalid fix for something that CANNOT be fixed
                 scr.videoType = VideoType.getTypeFromURL(scr.url);
-                ytVolume = Float.POSITIVE_INFINITY; //Force volume update
+                ytVolume = -1.0f; // Force volume update on next distance tick
 
                 if (blacklisted && scr.browser != null)
                     scr.browser.loadURL(WebDisplays.BLACKLIST_URL);

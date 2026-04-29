@@ -96,9 +96,9 @@ public class WebDisplays {
     public double loadDistance2;
     public int miniservPort;
     public long miniservQuota;
-    public float ytVolume;
-    public float avDist100;
-    public float avDist0;
+    public float ytVolume = 1.0f;
+    public float avDist100 = 10.0f;
+    public float avDist0 = 30.0f;
     
     // mod detection
     private boolean hasOC;

@@ -602,8 +602,8 @@ public class ClientProxy extends SharedProxy implements ResourceManagerReloadLis
 				if (tes.isLoaded()) {
 					if (dist > WebDisplays.INSTANCE.unloadDistance2 * 16)
 						tes.deactivate();
-//					else if (ClientConfig.AutoVolumeControl.enableAutoVolume)
-//						tes.updateTrackDistance(dist, 80); //ToDo find master volume
+					else
+						tes.updateTrackDistance(dist);
 				} else if (dist <= WebDisplays.INSTANCE.loadDistance2 * 16)
 					tes.activate();
 			}
