@@ -52,8 +52,8 @@ public class ScreenBaker implements BakedModel {
 		buf[pos + 1] = Float.floatToRawIntBits(vpos.y);
 		buf[pos + 2] = Float.floatToRawIntBits(vpos.z);
 		buf[pos + 3] = 0xFFFFFFFF; //Color, let this white...
-		buf[pos + 4] = Float.floatToRawIntBits(tex.getU(uv.x));
-		buf[pos + 5] = Float.floatToRawIntBits(tex.getV(uv.y));
+		buf[pos + 4] = Float.floatToRawIntBits(tex.getU(uv.x / 16.0f));
+		buf[pos + 5] = Float.floatToRawIntBits(tex.getV(uv.y / 16.0f));
 		
 		int nx = (normal.x * 127) & 0xFF;
 		int ny = (normal.y * 127) & 0xFF;
@@ -104,7 +104,7 @@ public class ScreenBaker implements BakedModel {
 		putVertex(data, (rotation + 1) % 4, rotateVec(new Vector3f(1.0f, 0.0f, 1.0f), side), tex, rotateTex(side, 0.0f, 16.0f), side.backward);
 		putVertex(data, (rotation) % 4, rotateVec(new Vector3f(1.0f, 0.0f, 0.0f), side), tex, rotateTex(side, 0.0f, 0.0f), side.backward);
 		
-		return new BakedQuad(data, 0xFFFFFFFF, blockFacings[side.ordinal()].getOpposite(), tex, true);
+		return new BakedQuad(data, -1, blockFacings[side.ordinal()].getOpposite(), tex, true);
 	}
 	
 	@Override
